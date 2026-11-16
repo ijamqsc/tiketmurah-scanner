@@ -1,0 +1,15 @@
+name: Runner Test
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: echo "RUNNER_TEST_STARTED"
+      - run: date -u
+      - run: echo "RUNNER_TEST_FINISHED"
