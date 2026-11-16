@@ -1,0 +1,52 @@
+name: Malaysia Deals Scan
+
+on:
+  workflow_dispatch:
+    inputs:
+      sources:
+        description: 'Comma-separated Malaysia sources (airasia,malaysia-airlines,firefly)'
+        required: false
+        default: 'airasia,malaysia-airlines,firefly'
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+      - id: validate-sources
+        run: |
+          INPUT_SOURCES="${{ github.event.inputs.sources || 'airasia,malaysia-airlines,firefly' }}"
+          ALLOWLIST="airasia malaysia-airlines firefly"
+          VALID_SOURCES=""
+          IFS=',' read -ra SOURCES <<< "$INPUT_SOURCES"
+          for SOURCE in "${SOURCES[@]}"; do
+            SOURCE=$(echo "$SOURCE" | xargs)
+            FOUND=0
+            for ALLOWED in $ALLOWLIST; do
+              if [ "$SOURCE" = "$ALLOWED" ]; then
+                FOUND=1
+                break
+              fi
+            done
+            if [ "$FOUND" -eq 0 ]; then
+              echo "ERROR: Sumber tidak dibenarkan: $SOURCE"
+              exit 1
+            fi
+            if [ -n "$VALID_SOURCES" ]; then
+              VALID_SOURCES="$VALID_SOURCES $SOURCE"
+            else
+              VALID_SOURCES="$SOURCE"
+            fi
+          done
+          echo "sources=$VALID_SOURCES" >> $GITHUB_OUTPUT
+      - run: |
+          SOURCES="${{ steps.validate-sources.outputs.sources }}"
+          for SOURCE in $SOURCES; do
+            node error_fare_scan.js --source="$SOURCE"
+          done
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
